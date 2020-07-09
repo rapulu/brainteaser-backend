@@ -21,7 +21,7 @@ from django.urls import path, include
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="GAME API",
+      title="Brain Teaser API",
       default_version='v1',
       description="Test Endpoints here",
       terms_of_service="https://www.google.com/policies/terms/",

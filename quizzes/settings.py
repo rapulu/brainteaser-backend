@@ -25,7 +25,7 @@ SECRET_KEY = 'y34+ip*x-f8yc=f6%k!cee(=6=vjhly+a)nk#lkg_g=@pz=k*q'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -131,3 +131,4 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
 STATIC_URL = '/static/'
+#STATIC_ROOT = '/home/mohammedadel/brainteaser-backend/static' deployment
