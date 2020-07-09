@@ -74,6 +74,7 @@ def check_if_game_code_isValid(request):
                 "error": "Already played game"
             }, status=status.HTTP_400_BAD_REQUEST)
         game = Game.objects.get(game_code=request.data['game_code'])
+        print(game)
         gameData = GameSerializer(game).data
         if gameData['active']:
             questions = Question.objects.filter(category=gameData['category'])
@@ -82,12 +83,12 @@ def check_if_game_code_isValid(request):
             for question in questionData:
                 options = []
                 for option in question['options']:
-                    optionQuery = Options.objects.get(id=option)
+                    print(option)
+                    optionQuery = Options.objects.get(option=option)
                     optionData = OptionsSerializer(optionQuery, many=False).data
                     options.append(optionData)
                 question['options'] = options
                 questions.append(question)
-            print(questions)
             serializer = UserGamesSerializer(data={
                 'game_code': request.data['game_code'],
                 'category': gameData['category'],
@@ -115,7 +116,7 @@ def check_if_game_code_isValid(request):
         JsonResponse({"error": error}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(["POST"])
+@api_view(["PUT"])
 def end_game(request):
     if "game_code" not in request.data:
         return JsonResponse(
@@ -124,6 +125,7 @@ def end_game(request):
     try:
         game = Game.objects.get(game_code=request.data['game_code'])
         updated = Game.objects.filter(game_code=request.data['game_code']).update(active=False)
+        game = Game.objects.get(game_code=request.data['game_code'])
         gameData = GameSerializer(game).data
         return JsonResponse({
             "data": gameData

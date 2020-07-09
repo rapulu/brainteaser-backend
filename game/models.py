@@ -23,14 +23,11 @@ class User(models.Model):
 
 
 class Category(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=100, unique=False, null=False)
+    name = models.CharField(primary_key=True,max_length=100, unique=True, null=False)
 
 
 class Options(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    option = models.CharField(max_length=100000, unique=False, null=False)
-    is_answer = models.BooleanField(default=False)
+    option = models.CharField(primary_key=True,max_length=100000, unique=True, null=False)
 
 
 class Question(models.Model):
@@ -38,6 +35,7 @@ class Question(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     question = models.CharField(max_length=100000, unique=False, null=False)
     options = models.ManyToManyField("Options")
+    answer = models.ForeignKey(Options,related_name="correct", on_delete=models.CASCADE)
 
 
 class Game(models.Model):
