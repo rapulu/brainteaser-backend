@@ -86,7 +86,7 @@ def check_if_game_code_isValid(request):
                     print(option)
                     optionQuery = Options.objects.get(option=option)
                     optionData = OptionsSerializer(optionQuery, many=False).data
-                    options.append(optionData)
+                    options.append(optionData['option'])
                 question['options'] = options
                 questions.append(question)
             serializer = UserGamesSerializer(data={
@@ -163,6 +163,36 @@ def update_score_usergame(request):
             "error": error
         }, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(["POST"])
+def update_score_count_usergame(request):
+    if "user_game_id" not in request.data:
+        return JsonResponse(
+            {"error": "Enter user_game_id"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    if "no_answers_crct" not in request.data:
+        return JsonResponse(
+            {"error": "Enter no_answers_crct"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        ug = UserGames.objects.get(id=request.data['user_game_id'])
+        ug.score = ug.score +int(request.data['no_answers_crct'])
+        ug.save()
+        # ug = UserGames.objects.filter(id=request.data['user_game_id']).update(score=F['score'] + 1)
+        ugSerializer = UserGamesSerializer(ug, many=False).data
+        user = User.objects.get(id=ugSerializer['user'])
+        user.score = user.score + int(request.data['no_answers_crct'])
+        user.save()
+        return JsonResponse({
+            "data": ugSerializer
+        }, status=status.HTTP_200_OK)
+    except UserGames.DoesNotExist:
+        return JsonResponse({
+            "error": "Invalid user_game_id"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as error:
+        return JsonResponse({
+            "error": error
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(["GET"])
 def get_leader_board_game_code(request):
