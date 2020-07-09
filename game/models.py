@@ -6,15 +6,15 @@ from django.db import models
 
 # Create your models here.
 def add_one():
-    largest = Game.objects.all().order_by('ones').last().ones
+    largest = Game.objects.all().order_by('game_code').last()
     if not largest:
         return 1000
-    return largest + 1
+    return largest.game_code + 1
 
 
 class User(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=100, unique=False, null=False)
+    name = models.CharField(max_length=100, unique=True, null=False)
     email_address = models.CharField(unique=True, max_length=50, null=True)
     password = models.CharField(max_length=1000, null=True)
     score = models.PositiveIntegerField(
@@ -28,13 +28,14 @@ class Category(models.Model):
 
 
 class Options(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     option = models.CharField(max_length=100000, unique=False, null=False)
     is_answer = models.BooleanField(default=False)
 
 
 class Question(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    categoryId = models.ForeignKey(Category, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
     question = models.CharField(max_length=100000, unique=False, null=False)
     options = models.ManyToManyField("Options")
 
