@@ -9,14 +9,12 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from game.models import Game, User, Question, UserGames, Options, Category
-from game.serializers import UserSerializer, GameSerializer, QuestionSerializer, OptionsSerializer, UserGamesSerializer, CategorySerializer
+from game.serializers import UserSerializer, GameSerializer, QuestionSerializer, OptionsSerializer, UserGamesSerializer, \
+    CategorySerializer
+
 
 @api_view(['GET'])
 def get_all_category(request):
-    if request.query_params.get("Category") is None:
-        return JsonResponse(
-            {"error": "Enter the category"}, status=status.HTTP_400_BAD_REQUEST
-        )
     try:
         category = str(request.query_params.get("Category"))
         data = Category.objects.all()
@@ -30,17 +28,14 @@ def get_all_category(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
 @api_view(['POST'])
 def create_category(request):
     if request.method == "POST":
         createcategory = CategorySerializer(data=request.data)
         if createcategory.is_valid():
             createcategory.save()
-            return Response(createcategory.data, status = status.HTTP_201_CREATED)
-            return Response(createcategory.data, status = status.HTTP_400_BAD_REQUEST)
-
+            return Response(createcategory.data, status=status.HTTP_201_CREATED)
+        return Response(createcategory.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -57,14 +52,14 @@ def create_question(request):
         return JsonResponse(
             {"error": "There is no option with the answer "}, status=status.HTTP_400_BAD_REQUEST
         )
-    category = CategorySerializer(cats,many=True).data
+    category = CategorySerializer(cats, many=True).data
     options = question['options']
     optionsList = []
     for option in options:
         optionData = Options.objects.filter(option=option)
         if len(optionData) == 0:
-            option={
-                'option':option
+            option = {
+                'option': option
             }
             serializer = OptionsSerializer(data=option, many=False)
             if serializer.is_valid():
@@ -73,10 +68,10 @@ def create_question(request):
             serializer = OptionsSerializer(optionData[0], many=False)
         optionsList.append(serializer.data['option'])
     question = {
-        "question":question['question'],
+        "question": question['question'],
         "category": category[0]['name'],
-        "options":optionsList,
-        "answer":optionsList[index]
+        "options": optionsList,
+        "answer": optionsList[index]
     }
     serializer = QuestionSerializer(data=question)
     if serializer.is_valid():
@@ -239,6 +234,7 @@ def update_score_usergame(request):
             "error": error
         }, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(["POST"])
 def update_score_count_usergame(request):
     if "user_game_id" not in request.data:
@@ -251,7 +247,7 @@ def update_score_count_usergame(request):
         )
     try:
         ug = UserGames.objects.get(id=request.data['user_game_id'])
-        ug.score = ug.score +int(request.data['no_answers_crct'])
+        ug.score = ug.score + int(request.data['no_answers_crct'])
         ug.save()
         # ug = UserGames.objects.filter(id=request.data['user_game_id']).update(score=F['score'] + 1)
         ugSerializer = UserGamesSerializer(ug, many=False).data
@@ -269,6 +265,7 @@ def update_score_count_usergame(request):
         return JsonResponse({
             "error": error
         }, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(["GET"])
 def get_leader_board_game_code(request):
@@ -311,6 +308,30 @@ def get_leader_board(request):
         user = UserSerializer(data, many=True).data
         return JsonResponse({
             "data": user
+        }, status=status.HTTP_200_OK)
+    except Exception as error:
+        return JsonResponse({
+            "error": error
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET"])
+def get_user_dasboard(request):
+    if request.query_params.get("user_name") is None:
+        return JsonResponse(
+            {"error": "Enter user_name"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        user = User.objects.get(name=request.query_params.get("user_name"))
+        userData = UserSerializer(user).data
+        data = UserGames.objects.filter(user=userData['id']).order_by('-score')
+        usergames = UserGamesSerializer(data, many=True).data
+        return JsonResponse({
+            "data": usergames
+        }, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return JsonResponse({
+            "data": "User has not played any game"
         }, status=status.HTTP_200_OK)
     except Exception as error:
         return JsonResponse({
