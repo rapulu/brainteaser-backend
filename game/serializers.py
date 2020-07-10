@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Game, User, Question, Options, UserGames
+from .models import Game, User, Question, Options, UserGames, Category
 
 
 class GameSerializer(serializers.ModelSerializer):
@@ -19,6 +19,8 @@ class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = '__all__'
+    #def create(self, validated_data):
+        #return Question.objects.create(**validated_data)
 
 
 class OptionsSerializer(serializers.ModelSerializer):
@@ -30,4 +32,9 @@ class OptionsSerializer(serializers.ModelSerializer):
 class UserGamesSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserGames
+        fields = '__all__'
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
         fields = '__all__'

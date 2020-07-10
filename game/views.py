@@ -6,10 +6,58 @@ from django.shortcuts import render
 # Create your views here.
 from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
-from game.models import Game, User, Question, UserGames, Options
-from game.serializers import UserSerializer, GameSerializer, QuestionSerializer, OptionsSerializer, UserGamesSerializer
+from game.models import Game, User, Question, UserGames, Options, Category
+from game.serializers import UserSerializer, GameSerializer, QuestionSerializer, OptionsSerializer, UserGamesSerializer, CategorySerializer
 
+@api_view(['GET'])
+def get_all_category(request):
+    if request.query_params.get("Category") is None:
+        return JsonResponse(
+            {"error": "Enter the category"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        category = str(request.query_params.get("Category"))
+        data = Category.objects.all()
+        question = CategorySerializer(data, many=True).data
+        return JsonResponse({
+            "data": question
+        }, status=status.HTTP_200_OK)
+    except Exception as error:
+        return JsonResponse({
+            "error": error
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+@api_view(['POST'])
+def create_category(request):
+    if request.method == "POST":
+        createcategory = CategorySerializer(data=request.data)
+        if createcategory.is_valid():
+            createcategory.save()
+            return Response(createcategory.data, status = status.HTTP_201_CREATED)
+            return Response(createcategory.data, status = status.HTTP_400_BAD_REQUEST)
+
+
+
+@api_view(['POST'])
+def create_question(request):
+    question = request.data.get('Question')
+    options = question['options']
+    optionsList=[]
+    for option in options:
+        serializer = OptionsSerializer(data=options)
+        if serializer.is_valid():
+            serializer.save()
+        #optionsList.append(serializer.data['options'])
+    # Create/save data
+    serializer = QuestionSerializer(data=question)
+    if serializer.is_valid(raise_exception=True):
+        question_saved = serializer.save()
+        return Response({"success": "question created successfully"})
 
 @api_view(["POST"])
 def create_a_game_code(request):
