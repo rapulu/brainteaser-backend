@@ -35,7 +35,7 @@ def create_category(request):
         if createcategory.is_valid():
             createcategory.save()
             return Response(createcategory.data, status=status.HTTP_201_CREATED)
-            return Response(createcategory.data, status=status.HTTP_400_BAD_REQUEST)
+        return Response(createcategory.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
