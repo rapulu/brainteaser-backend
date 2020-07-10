@@ -46,18 +46,46 @@ def create_category(request):
 @api_view(['POST'])
 def create_question(request):
     question = request.data.get('Question')
+    cats = Category.objects.filter(name=question['category'])
+    if len(cats) == 0:
+        return JsonResponse(
+            {"error": "Enter valid category"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        index = question['options'].index(question['answer'])
+    except Exception as error:
+        return JsonResponse(
+            {"error": "There is no option with the answer "}, status=status.HTTP_400_BAD_REQUEST
+        )
+    category = CategorySerializer(cats,many=True).data
     options = question['options']
-    optionsList=[]
+    optionsList = []
     for option in options:
-        serializer = OptionsSerializer(data=options)
-        if serializer.is_valid():
-            serializer.save()
-        #optionsList.append(serializer.data['options'])
-    # Create/save data
+        optionData = Options.objects.filter(option=option)
+        if len(optionData) == 0:
+            option={
+                'option':option
+            }
+            serializer = OptionsSerializer(data=option, many=False)
+            if serializer.is_valid():
+                serializer.save()
+        else:
+            serializer = OptionsSerializer(optionData[0], many=False)
+        optionsList.append(serializer.data['option'])
+    question = {
+        "question":question['question'],
+        "category": category[0]['name'],
+        "options":optionsList,
+        "answer":optionsList[index]
+    }
     serializer = QuestionSerializer(data=question)
-    if serializer.is_valid(raise_exception=True):
-        question_saved = serializer.save()
-        return Response({"success": "question created successfully"})
+    if serializer.is_valid():
+        serializer.save()
+        return JsonResponse({
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(["POST"])
 def create_a_game_code(request):
