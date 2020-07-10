@@ -101,7 +101,7 @@ def check_if_game_code_isValid(request):
                         'questions': questions,
                         'usergameData': serializer.data
                     }
-                }, status=status.HTTP_400_BAD_REQUEST)
+                }, status=status.HTTP_200_OK)
             return JsonResponse({
                 "error": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -176,7 +176,7 @@ def get_leader_board_game_code(request):
         )
     try:
         n = int(request.query_params.get("n"))
-        data = UserGames.objects.filter(game_code=request.data['game_code']).order_by('score')[
+        data = UserGames.objects.filter(game_code=request.query_params.get("game_code")).order_by('-score')[
                :n]
         userGames = UserGamesSerializer(data, many=True).data
         users = []
@@ -185,7 +185,7 @@ def get_leader_board_game_code(request):
             userData = UserSerializer(user).data
             ug['user'] = userData
         return JsonResponse({
-            "data": ug
+            "data": userGames
         }, status=status.HTTP_200_OK)
     except Exception as error:
         return JsonResponse({
@@ -201,7 +201,7 @@ def get_leader_board(request):
         )
     try:
         n = int(request.query_params.get("n"))
-        data = User.objects.all().order_by('score')[:n]
+        data = User.objects.all().order_by('-score')[:n]
         user = UserSerializer(data, many=True).data
         return JsonResponse({
             "data": user
