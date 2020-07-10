@@ -101,7 +101,7 @@ def check_if_game_code_isValid(request):
                         'questions': questions,
                         'usergameData': serializer.data
                     }
-                }, status=status.HTTP_400_BAD_REQUEST)
+                }, status=status.HTTP_200_OK)
             return JsonResponse({
                 "error": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
