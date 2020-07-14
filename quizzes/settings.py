@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'game.apps.GameConfig',
     'drf_yasg',
 ]
@@ -132,3 +133,11 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 #STATIC_ROOT = '/home/mohammedadel/brainteaser-backend/static' deployment
+
+
+
+REST_FRAMEWORK = {
+   'DEFAULT_AUTHENTICATION_CLASSES': (
+       'rest_framework.authentication.TokenAuthentication',
+   ),
+}
