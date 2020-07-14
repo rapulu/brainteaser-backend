@@ -1,6 +1,8 @@
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from rest_framework import serializers
-
-from .models import Game, User, Question, Options, UserGames, Category
+from rest_framework.authtoken.models import Token
+from .models import Game, Question, Options, UserGames, Category
 
 
 class GameSerializer(serializers.ModelSerializer):
@@ -9,18 +11,10 @@ class GameSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = '__all__'
-
-
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = '__all__'
-    #def create(self, validated_data):
-        #return Question.objects.create(**validated_data)
 
 
 class OptionsSerializer(serializers.ModelSerializer):
@@ -33,6 +27,19 @@ class UserGamesSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserGames
         fields = '__all__'
+
+
+class TokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Token
+        fields = '__all__'
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = '__all__'
+
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
