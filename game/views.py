@@ -599,3 +599,27 @@ def delete_category(request):
     return JsonResponse(
         {"category":"Category name deleted sucessfully"}, status = status.HTTP_204_NO_CONTENT
     )
+
+
+@api_view(['PUT'])
+@authentication_classes((TokenAuthentication,))
+def update_category(request):
+    token = request.META['HTTP_AUTHORIZATION'].split(' ')
+    if "name" not in request.data:
+        return JsonResponse(
+            {"error": "Enter a valid category name"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    if "newname" not in request.data:
+        return JsonResponse(
+            {"error": "Enter a valid category name"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        user = Token.objects.get(key=token[1]).user
+    except Token.DoesNotExist:
+        return JsonResponse(
+            {"error": "Invalid User token "}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    Category.objects.filter(name = request.data['name']).update(name=request.data['newname'])
+    return JsonResponse(
+        {"category":"Category name updated sucessfully"}, status = status.HTTP_201_CREATED
+    )
