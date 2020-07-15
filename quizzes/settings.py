@@ -37,10 +37,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    #Third Party apps
     'rest_framework',
     'rest_framework.authtoken',
-    'game.apps.GameConfig',
     'drf_yasg',
+    #Project Apps
+    'game.apps.GameConfig',
+    
 ]
 
 MIDDLEWARE = [
