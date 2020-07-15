@@ -165,9 +165,9 @@ def update_question(request):
         else:
             serializer = OptionsSerializer(optionData[0], many=False)
         optionsList.append(serializer.data['option'])
-    
+
     questionData = Question.objects.get(id=question['id'])
-    questionData.question = question['question']    
+    questionData.question = question['question']
     questionData.category = Category.objects.get(name=category[0]['name'])
     questionData.options.set(optionsList)
     questionData.user = user
@@ -552,32 +552,35 @@ def forgot_password(request):
             {"error": error}, status=status.HTTP_400_BAD_REQUEST
         )
 
+
 @api_view(['POST'])
 @authentication_classes((TokenAuthentication,))
 def delete_question(request):
     token = request.META['HTTP_AUTHORIZATION'].split(' ')
     if "id" not in request.data:
         return JsonResponse(
-            {"error": "Enter correct question ID"}, status=status.HTTP_400_BAD_REQUEST
+            {"error": "Enter question ID"}, status=status.HTTP_400_BAD_REQUEST
         )
-    #questionData = request.data.get('Question')    
-    #checkuser = QuestionSerializer.data
-    #checkuser = Question.objects.filter(id=request.data['id'])
-    #ques = QuestionSerializer(questionData, many=False).data
-    #if ques['user'] != user.id:
-    #    return JsonResponse(
-    #        {"error": "Cannot delete the question .The questions can only be deleted by the user who created"},
-    #        status=status.HTTP_401_UNAUTHORIZED
-    #    )
     try:
         user = Token.objects.get(key=token[1]).user
     except Token.DoesNotExist:
         return JsonResponse(
             {"error": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED
         )
+    questionData = Question.objects.filter(id=request.data['id'])
+    if len(questionData) == 0:
+        return JsonResponse(
+            {"error": "There is no question with this id"}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    ques = QuestionSerializer(questionData[0], many=False).data
+    if ques['user'] != user.id:
+        return JsonResponse(
+            {"error": "Cannot delete the question .The questions can only be deleted by the user who created"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
     Question.objects.filter(id=request.data['id']).delete()
     return JsonResponse(
-        {"question":"Question deleted sucessfully"}, status = status.HTTP_204_NO_CONTENT
+        {"question": "Question deleted sucessfully"}, status=status.HTTP_204_NO_CONTENT
     )
 
 
@@ -595,9 +598,39 @@ def delete_category(request):
         return JsonResponse(
             {"error": "Invalid User token "}, status=status.HTTP_401_UNAUTHORIZED
         )
+    categoryData = Category.objects.filter(name=request.data['name'])
+    if len(categoryData) == 0:
+        return JsonResponse(
+            {"error": "There is no category with this name"}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    cat = CategorySerializer(categoryData[0], many=False).data
+    if cat['user'] != user.id:
+        return JsonResponse(
+            {"error": "Cannot delete the category .It can only be deleted by the user who created"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    categoryData = Category.objects.get(name=request.data['name'])
+    question = Question.objects.filter(category=categoryData)
+    if len(question) != 0:
+        return JsonResponse(
+            {"error": "Cannot delete the category .Questions have refrence to this"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    ug = UserGames.objects.filter(category=categoryData)
+    if len(ug) != 0:
+        return JsonResponse(
+            {"error": "Cannot delete the category .Some players have played the game"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    game = Game.objects.filter(category=categoryData)
+    if len(game) != 0:
+        return JsonResponse(
+            {"error": "Cannot delete the category .Games are created"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
     Category.objects.filter(name=request.data['name']).delete()
     return JsonResponse(
-        {"category":"Category name deleted sucessfully"}, status = status.HTTP_204_NO_CONTENT
+        {"category": "Category name deleted sucessfully"}, status=status.HTTP_204_NO_CONTENT
     )
 
 
@@ -619,7 +652,25 @@ def update_category(request):
         return JsonResponse(
             {"error": "Invalid User token "}, status=status.HTTP_401_UNAUTHORIZED
         )
-    Category.objects.filter(name = request.data['name']).update(name=request.data['newname'])
+    categoryData = Category.objects.filter(name=request.data['name'])
+    if len(categoryData) == 0:
+        return JsonResponse(
+            {"error": "There is no category with this name"}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    cat = CategorySerializer(categoryData[0], many=False).data
+    if cat['user'] != user.id:
+        return JsonResponse(
+            {"error": "Cannot delete the category .It can only be deleted by the user who created"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    cat = Category.objects.get(name=request.data['name'])
+    cat.name = request.data['newname']
+    cat.save()
+    categoryData = Category.objects.get(name=request.data['name'])
+    Question.objects.filter(category=categoryData).update(category=cat)
+    UserGames.objects.filter(category=categoryData).update(category=cat)
+    Game.objects.filter(category=categoryData).update(category=cat)
+    Category.objects.filter(name=request.data['name']).delete()
     return JsonResponse(
-        {"category":"Category name updated sucessfully"}, status = status.HTTP_201_CREATED
+        {"category": "Category name updated sucessfully"}, status=status.HTTP_201_CREATED
     )
