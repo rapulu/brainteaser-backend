@@ -551,3 +551,51 @@ def forgot_password(request):
         return JsonResponse(
             {"error": error}, status=status.HTTP_400_BAD_REQUEST
         )
+
+@api_view(['POST'])
+@authentication_classes((TokenAuthentication,))
+def delete_question(request):
+    token = request.META['HTTP_AUTHORIZATION'].split(' ')
+    if "id" not in request.data:
+        return JsonResponse(
+            {"error": "Enter correct question ID"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    #questionData = request.data.get('Question')    
+    #checkuser = QuestionSerializer.data
+    #checkuser = Question.objects.filter(id=request.data['id'])
+    #ques = QuestionSerializer(questionData, many=False).data
+    #if ques['user'] != user.id:
+    #    return JsonResponse(
+    #        {"error": "Cannot delete the question .The questions can only be deleted by the user who created"},
+    #        status=status.HTTP_401_UNAUTHORIZED
+    #    )
+    try:
+        user = Token.objects.get(key=token[1]).user
+    except Token.DoesNotExist:
+        return JsonResponse(
+            {"error": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    Question.objects.filter(id=request.data['id']).delete()
+    return JsonResponse(
+        {"question":"Question deleted sucessfully"}, status = status.HTTP_204_NO_CONTENT
+    )
+
+
+@api_view(['POST'])
+@authentication_classes((TokenAuthentication,))
+def delete_category(request):
+    token = request.META['HTTP_AUTHORIZATION'].split(' ')
+    if "name" not in request.data:
+        return JsonResponse(
+            {"error": "Enter a valid category name"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        user = Token.objects.get(key=token[1]).user
+    except Token.DoesNotExist:
+        return JsonResponse(
+            {"error": "Invalid User token "}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    Category.objects.filter(name=request.data['name']).delete()
+    return JsonResponse(
+        {"category":"Category name deleted sucessfully"}, status = status.HTTP_204_NO_CONTENT
+    )
