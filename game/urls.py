@@ -4,7 +4,7 @@ from django.urls import path, include
 from game.views import create_a_game_code, check_if_game_code_isValid, end_game, update_score_usergame, \
     get_leader_board_game_code, update_score_count_usergame, get_all_category, create_category, \
     create_question, login_user, logout_user, register, get_user_data, forgot_password, change_password, get_questions, \
-    update_question, delete_question, delete_category
+    update_question, delete_question, delete_category, update_category
 
 urlpatterns = [
     path('game', create_a_game_code),
@@ -17,6 +17,7 @@ urlpatterns = [
     path('game/create/category', create_category), 
     path('game/create/question', create_question),
     path('game/update/question', update_question),
+    path('game/update/category', update_category),
     path('game/delete/category', delete_category),
     path('game/delete/question', delete_question),
     path('game/question', get_questions),
