@@ -1,3 +1,5 @@
+import random
+
 from django.contrib.auth import authenticate, login, get_user_model, logout
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -85,6 +87,10 @@ def create_question(request):
         )
     category = CategorySerializer(cats, many=True).data
     options = question['options']
+    if len(options) != 4:
+        return JsonResponse(
+            {"error": "There should be exaclty 4 options"}, status=status.HTTP_400_BAD_REQUEST
+        )
     optionsList = []
     for option in options:
         optionData = Options.objects.filter(option=option)
@@ -150,8 +156,13 @@ def update_question(request):
         return JsonResponse(
             {"error": "There is no option with the answer "}, status=status.HTTP_400_BAD_REQUEST
         )
+
     category = CategorySerializer(cats, many=True).data
     options = question['options']
+    if len(options) != 4:
+        return JsonResponse(
+            {"error": "There should be exaclty 4 options"}, status=status.HTTP_400_BAD_REQUEST
+        )
     optionsList = []
     for option in options:
         optionData = Options.objects.filter(option=option)
@@ -205,6 +216,54 @@ def get_questions(request):
     }, status=status.HTTP_200_OK)
 
 
+@api_view(['GET'])
+@authentication_classes((TokenAuthentication,))
+def get_questions_user(request):
+    token = request.META['HTTP_AUTHORIZATION'].split(' ')
+    try:
+        user = Token.objects.get(key=token[1]).user
+    except Token.DoesNotExist:
+        return JsonResponse(
+            {"error": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    questions = Question.objects.filter(user=user.id)
+    questionData = QuestionSerializer(questions, many=True).data
+    questions = []
+    for question in questionData:
+        options = []
+        for option in question['options']:
+            optionQuery = Options.objects.get(option=option)
+            optionData = OptionsSerializer(optionQuery, many=False).data
+            options.append(optionData['option'])
+        question['options'] = options
+        questions.append(question)
+    return JsonResponse({
+        "data": questions
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@authentication_classes((TokenAuthentication,))
+def get_all_category_user(request):
+    try:
+        token = request.META['HTTP_AUTHORIZATION'].split(' ')
+        try:
+            user = Token.objects.get(key=token[1]).user
+        except Token.DoesNotExist:
+            return JsonResponse(
+                {"error": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+        data = Category.objects.filter(user=user.id)
+        question = CategorySerializer(data, many=True).data
+        return JsonResponse({
+            "data": question
+        }, status=status.HTTP_200_OK)
+    except Exception as error:
+        return JsonResponse({
+            "error": error
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
 @api_view(["POST"])
 def create_a_game_code(request):
     if "user_name" not in request.data:
@@ -248,7 +307,9 @@ def check_if_game_code_isValid(request):
                 return JsonResponse({
                     "error": "Already played game"
                 }, status=status.HTTP_400_BAD_REQUEST)
-            questions = Question.objects.filter(category=gameData['category'])
+            qList = Question.objects.filter(category=gameData['category']).values_list('id', flat=True)
+            qRand = random.sample(list(qList), min(len(qList), 10))
+            questions = Question.objects.filter(id__in=qRand)
             questionData = QuestionSerializer(questions, many=True).data
             questions = []
             for question in questionData:
@@ -275,6 +336,41 @@ def check_if_game_code_isValid(request):
             return JsonResponse({
                 "error": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return JsonResponse({"error": "Game code is expired"}, status=status.HTTP_400_BAD_REQUEST)
+    except Game.DoesNotExist:
+        return JsonResponse({
+            "error": "Invalid game code"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as error:
+        return
+        JsonResponse({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["POST"])
+def check_if_user_can_play_game_code(request):
+    if "game_code" not in request.data:
+        return JsonResponse(
+            {"error": "Enter game_code"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    if "user_name" not in request.data:
+        return JsonResponse(
+            {"error": "Enter user_name"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        game = Game.objects.get(game_code=request.data['game_code'])
+        gameData = GameSerializer(game).data
+        if gameData['user_name'] == request.data['user_name']:
+            return JsonResponse({"error": "User cannot play the game"}, status=status.HTTP_400_BAD_REQUEST)
+        if gameData['active']:
+            ug = UserGames.objects.filter(game_code=request.data['game_code'], user_name=request.data['user_name'])
+            if len(ug) != 0:
+                return JsonResponse({
+                    "error": "Already played game"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({
+                "data": "User can play game"
+            }, status=status.HTTP_200_OK)
         else:
             return JsonResponse({"error": "Game code is expired"}, status=status.HTTP_400_BAD_REQUEST)
     except Game.DoesNotExist:
