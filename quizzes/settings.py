@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     #Project Apps
     'game.apps.GameConfig',
-    
+
 ]
 
 MIDDLEWARE = [
@@ -135,7 +135,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
 STATIC_URL = '/static/'
-#STATIC_ROOT = '/home/mohammedadel/brainteaser-backend/static' deployment
+STATIC_ROOT = '/home/brainteaser/brainteaser-backend/static'
 
 
 

@@ -85,6 +85,10 @@ def create_question(request):
         )
     category = CategorySerializer(cats, many=True).data
     options = question['options']
+    if len(options) != 4:
+        return JsonResponse(
+            {"error": "There should be exaclty 4 options"}, status=status.HTTP_400_BAD_REQUEST
+        )
     optionsList = []
     for option in options:
         optionData = Options.objects.filter(option=option)
@@ -150,8 +154,13 @@ def update_question(request):
         return JsonResponse(
             {"error": "There is no option with the answer "}, status=status.HTTP_400_BAD_REQUEST
         )
+
     category = CategorySerializer(cats, many=True).data
     options = question['options']
+    if len(options) != 4:
+        return JsonResponse(
+            {"error": "There should be exaclty 4 options"}, status=status.HTTP_400_BAD_REQUEST
+        )
     optionsList = []
     for option in options:
         optionData = Options.objects.filter(option=option)
@@ -203,6 +212,54 @@ def get_questions(request):
     return JsonResponse({
         "data": questions
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@authentication_classes((TokenAuthentication,))
+def get_questions_user(request):
+    token = request.META['HTTP_AUTHORIZATION'].split(' ')
+    try:
+        user = Token.objects.get(key=token[1]).user
+    except Token.DoesNotExist:
+        return JsonResponse(
+            {"error": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    questions = Question.objects.filter(user=user.id)
+    questionData = QuestionSerializer(questions, many=True).data
+    questions = []
+    for question in questionData:
+        options = []
+        for option in question['options']:
+            optionQuery = Options.objects.get(option=option)
+            optionData = OptionsSerializer(optionQuery, many=False).data
+            options.append(optionData['option'])
+        question['options'] = options
+        questions.append(question)
+    return JsonResponse({
+        "data": questions
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@authentication_classes((TokenAuthentication,))
+def get_all_category_user(request):
+    try:
+        token = request.META['HTTP_AUTHORIZATION'].split(' ')
+        try:
+            user = Token.objects.get(key=token[1]).user
+        except Token.DoesNotExist:
+            return JsonResponse(
+                {"error": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+        data = Category.objects.filter(user=user.id)
+        question = CategorySerializer(data, many=True).data
+        return JsonResponse({
+            "data": question
+        }, status=status.HTTP_200_OK)
+    except Exception as error:
+        return JsonResponse({
+            "error": error
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["POST"])
