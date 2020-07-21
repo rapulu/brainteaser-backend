@@ -568,7 +568,7 @@ def delete_user(request):
         # token = request.META['HTTP_AUTHORIZATION'].split(' ')
         # user = Token.objects.get(key=token[1]).user
         return JsonResponse(
-            {"data": "Deleted account adn logged out the user successfully"}, status=status.HTTP_200_OK
+            {"data": "Deleted account and logged out the user successfully"}, status=status.HTTP_200_OK
         )
     except Token.DoesNotExist:
         return JsonResponse(
