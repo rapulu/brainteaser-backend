@@ -833,7 +833,13 @@ def opendb(request):
             serializer.save()
             questionsList.append(serializer.data)
         else:
-            errorList.append(serializer.errors)
-    return JsonResponse({
-        "data": questionsList
-    }, status=status.HTTP_200_OK)
+            errorList.append({'error':serializer.errors,'question':html.unescape(question['question'])})
+    if len(errorList) != 0:
+        return JsonResponse({
+            "data": questionsList,
+            'error': errorList
+        }, status=status.HTTP_200_OK)
+    else:
+        return JsonResponse({
+            "data": questionsList
+        }, status=status.HTTP_200_OK)

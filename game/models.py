@@ -33,7 +33,7 @@ class Options(models.Model):
 class Question(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    question = models.CharField(max_length=100000, unique=False, null=False)
+    question = models.CharField(max_length=100000, unique=True, null=False)
     options = models.ManyToManyField("Options")
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     answer = models.ForeignKey(Options, related_name="correct", on_delete=models.CASCADE)
