@@ -523,20 +523,28 @@ def login_user(request):
         return JsonResponse(
             {"error": "Enter password"}, status=status.HTTP_400_BAD_REQUEST
         )
-    user = User.objects.get(username__exact=request.data['user_name'])
-    if user is not None and user.check_password(request.data['password']) == True:
-        login(request, user)
-        userData = UserSerializer(user).data
-        try:
-            token = Token.objects.create(user=request.user)
+    try:
+        user = User.objects.get(username__exact=request.data['user_name'], is_active=True)
+        if user is not None and user.check_password(request.data['password']) == True:
+            token = Token.objects.filter(user=user)
+            if len(token) != 0:
+                token.delete()
+            login(request, user)
+            userData = UserSerializer(user).data
+            try:
+                token = Token.objects.create(user=request.user)
+                return JsonResponse(
+                    {"token": token.key, "user": userData}, status=status.HTTP_200_OK
+                )
+            except IntegrityError:
+                return JsonResponse(
+                    {"error": "User is already logged in"}, status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
             return JsonResponse(
-                {"token": token.key, "user": userData}, status=status.HTTP_200_OK
+                {"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST
             )
-        except IntegrityError:
-            return JsonResponse(
-                {"error": "User is already logged in"}, status=status.HTTP_400_BAD_REQUEST
-            )
-    else:
+    except User.DoesNotExist:
         return JsonResponse(
             {"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST
         )
@@ -544,19 +552,23 @@ def login_user(request):
 
 @api_view(['POST'])
 @authentication_classes((TokenAuthentication,))
-def logout_user(request):
+def delete_user(request):
     print(request.META['HTTP_AUTHORIZATION'])
     print(request.user)
     token = request.META['HTTP_AUTHORIZATION'].split(' ')
     try:
         token = Token.objects.get(key=token[1])
+        user = token.user
         token.delete()
+        userData = User.objects.get(id=user.id)
+        userData.is_active = False
+        userData.save()
         logout(request)
         # print(request.META['HTTP_AUTHORIZATION'])
         # token = request.META['HTTP_AUTHORIZATION'].split(' ')
         # user = Token.objects.get(key=token[1]).user
         return JsonResponse(
-            {"data": "Logged out successfully"}, status=status.HTTP_200_OK
+            {"data": "Deleted account and logged out the user successfully"}, status=status.HTTP_200_OK
         )
     except Token.DoesNotExist:
         return JsonResponse(
