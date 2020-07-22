@@ -801,7 +801,7 @@ def opendb(request):
     questionsList = []  # option list
     errorList = []
     for question in data['results']:  # goes through option list (LOOP 2)
-        optionsList = question['incorrect_answers']
+        optionsList = html.unescape(question['incorrect_answers'])
         optionsList.append(question['correct_answer'])
         random.shuffle(optionsList)
         try:
@@ -821,12 +821,14 @@ def opendb(request):
             else:
                 serializer = OptionsSerializer(optionData[0], many=False)
             optionsListData.append(serializer.data['option'])
+        escapedquestion = question['question']
+        unescapedquestion = html.unescape(escapedquestion).replace("\\","")
         question = {
-            "question": html.unescape(question['question']),
+            "question": unescapedquestion,
             "category": question['category'],
             "options": optionsListData,
             "user": user.id,
-            "answer": optionsListData[index]
+            "answer": html.unescape(optionsListData[index])
         }
         serializer = QuestionSerializer(data=question)
         if serializer.is_valid():
