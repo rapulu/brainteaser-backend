@@ -3,7 +3,7 @@ import uuid
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from django.db import models
-
+from datetime import datetime
 
 # Create your models here.
 def add_one():
@@ -53,3 +53,15 @@ class UserGames(models.Model):
 class Document(models.Model):
     # other fields
     doc = models.FileField(upload_to='some/place/')
+
+
+class Newsletter(models.Model):
+    email = models.EmailField(null=False, unique=True, blank=False)
+    created_at = models.DateTimeField(default=datetime.now, blank=True)
+
+
+class ContactUs(models.Model):
+    email = models.EmailField(null=False, blank=False, unique=False)
+    full_name = models.CharField(max_length=100, null=False, blank=False)
+    message = models.TextField(null=False)
+    created_at = models.DateTimeField(default=datetime.now, blank=True)

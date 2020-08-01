@@ -1,22 +1,34 @@
+import html
+import random
+
+import requests
 from django.contrib.auth import authenticate, login, get_user_model, logout
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import F
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
-
 # Create your views here.
-from rest_framework import status
+from rest_framework import status, viewsets,generics
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+
+from quizzes.pagination.paginate import StandardResultsSetPagination
+
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    authentication_classes,
+    action,
+)
 
 from django.db import IntegrityError
 
-from game.models import Game, Question, UserGames, Options, Category
+from game.models import Game, Question, UserGames, Options, Category, ContactUs, Newsletter
 from game.serializers import GameSerializer, QuestionSerializer, OptionsSerializer, UserGamesSerializer, \
-    CategorySerializer, UserSerializer
+    CategorySerializer, UserSerializer, NewsletterSerializer, ContactUsSerializer
 
 from rest_framework.authtoken.models import Token
 
@@ -77,6 +89,10 @@ def create_question(request):
         return JsonResponse(
             {"error": "Enter valid category"}, status=status.HTTP_400_BAD_REQUEST
         )
+    if "answer" not in question:
+        return JsonResponse(
+            {"error": "Enter answer "}, status=status.HTTP_400_BAD_REQUEST
+        )
     try:
         index = question['options'].index(question['answer'])
     except Exception as error:
@@ -133,20 +149,24 @@ def update_question(request):
 
     if len(questionData) == 0:
         return JsonResponse(
-            {"error": "There is no question with this id"}, status=status.HTTP_401_UNAUTHORIZED
+            {"error": "There is no question with this id"}, status=status.HTTP_400_BAD_REQUEST
         )
     ques = QuestionSerializer(questionData[0], many=False).data
     print(ques)
     if ques['user'] != user.id:
         return JsonResponse(
             {"error": "Cannot update the question .The questions can only be updated by the user who created"},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_400_BAD_REQUEST
         )
 
     cats = Category.objects.filter(name=question['category'])
     if len(cats) == 0:
         return JsonResponse(
             {"error": "Enter valid category"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    if "answer" not in question:
+        return JsonResponse(
+            {"error": "Enter answer "}, status=status.HTTP_400_BAD_REQUEST
         )
     try:
         index = question['options'].index(question['answer'])
@@ -187,6 +207,22 @@ def update_question(request):
         "data": serializer.data
     }, status=status.HTTP_200_OK)
 
+
+@api_view(["GET"])
+def get_leader_board(request):
+    try:
+        data = UserGames.objects.all().order_by('-score')
+        if request.query_params.get("n") is not None:
+            n = int(request.query_params.get("n"))
+            data = data[:n]
+        userGames = UserGamesSerializer(data, many=True).data
+        return JsonResponse({
+            "data": userGames
+        }, status=status.HTTP_200_OK)
+    except Exception as error:
+        return JsonResponse({
+            "error": error
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @authentication_classes((TokenAuthentication,))
@@ -298,14 +334,16 @@ def check_if_game_code_isValid(request):
         game = Game.objects.get(game_code=request.data['game_code'])
         gameData = GameSerializer(game).data
         if gameData['user_name'] == request.data['user_name']:
-            return JsonResponse({"error": "Admin cannot play the game"}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": "Game Creator cannot play the game"}, status=status.HTTP_400_BAD_REQUEST)
         if gameData['active']:
             ug = UserGames.objects.filter(game_code=request.data['game_code'], user_name=request.data['user_name'])
             if len(ug) != 0:
                 return JsonResponse({
                     "error": "Already played game"
                 }, status=status.HTTP_400_BAD_REQUEST)
-            questions = Question.objects.filter(category=gameData['category'])
+            qList = Question.objects.filter(category=gameData['category']).values_list('id', flat=True)
+            qRand = random.sample(list(qList), min(len(qList), 10))
+            questions = Question.objects.filter(id__in=qRand)
             questionData = QuestionSerializer(questions, many=True).data
             questions = []
             for question in questionData:
@@ -332,6 +370,41 @@ def check_if_game_code_isValid(request):
             return JsonResponse({
                 "error": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return JsonResponse({"error": "Game code is expired"}, status=status.HTTP_400_BAD_REQUEST)
+    except Game.DoesNotExist:
+        return JsonResponse({
+            "error": "Invalid game code"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as error:
+        return
+        JsonResponse({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["POST"])
+def check_if_user_can_play_game_code(request):
+    if "game_code" not in request.data:
+        return JsonResponse(
+            {"error": "Enter game_code"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    if "user_name" not in request.data:
+        return JsonResponse(
+            {"error": "Enter user_name"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        game = Game.objects.get(game_code=request.data['game_code'])
+        gameData = GameSerializer(game).data
+        if gameData['user_name'] == request.data['user_name']:
+            return JsonResponse({"error": "Game Creator cannot play the game"}, status=status.HTTP_400_BAD_REQUEST)
+        if gameData['active']:
+            ug = UserGames.objects.filter(game_code=request.data['game_code'], user_name=request.data['user_name'])
+            if len(ug) != 0:
+                return JsonResponse({
+                    "error": "Already played game"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({
+                "data": "User can play game"
+            }, status=status.HTTP_200_OK)
         else:
             return JsonResponse({"error": "Game code is expired"}, status=status.HTTP_400_BAD_REQUEST)
     except Game.DoesNotExist:
@@ -484,20 +557,28 @@ def login_user(request):
         return JsonResponse(
             {"error": "Enter password"}, status=status.HTTP_400_BAD_REQUEST
         )
-    user = User.objects.get(username__exact=request.data['user_name'])
-    if user is not None and user.check_password(request.data['password']) == True:
-        login(request, user)
-        userData = UserSerializer(user).data
-        try:
-            token = Token.objects.create(user=request.user)
+    try:
+        user = User.objects.get(username__exact=request.data['user_name'], is_active=True)
+        if user is not None and user.check_password(request.data['password']) == True:
+            token = Token.objects.filter(user=user)
+            if len(token) != 0:
+                token.delete()
+            login(request, user)
+            userData = UserSerializer(user).data
+            try:
+                token = Token.objects.create(user=request.user)
+                return JsonResponse(
+                    {"token": token.key, "user": userData}, status=status.HTTP_200_OK
+                )
+            except IntegrityError:
+                return JsonResponse(
+                    {"error": "User is already logged in"}, status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
             return JsonResponse(
-                {"token": token.key, "user": userData}, status=status.HTTP_200_OK
+                {"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST
             )
-        except IntegrityError:
-            return JsonResponse(
-                {"error": "User is already logged in"}, status=status.HTTP_400_BAD_REQUEST
-            )
-    else:
+    except User.DoesNotExist:
         return JsonResponse(
             {"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST
         )
@@ -505,19 +586,23 @@ def login_user(request):
 
 @api_view(['POST'])
 @authentication_classes((TokenAuthentication,))
-def logout_user(request):
+def delete_user(request):
     print(request.META['HTTP_AUTHORIZATION'])
     print(request.user)
     token = request.META['HTTP_AUTHORIZATION'].split(' ')
     try:
         token = Token.objects.get(key=token[1])
+        user = token.user
         token.delete()
+        userData = User.objects.get(id=user.id)
+        userData.is_active = False
+        userData.save()
         logout(request)
         # print(request.META['HTTP_AUTHORIZATION'])
         # token = request.META['HTTP_AUTHORIZATION'].split(' ')
         # user = Token.objects.get(key=token[1]).user
         return JsonResponse(
-            {"data": "Logged out successfully"}, status=status.HTTP_200_OK
+            {"data": "Deleted account and logged out the user successfully"}, status=status.HTTP_200_OK
         )
     except Token.DoesNotExist:
         return JsonResponse(
@@ -627,13 +712,13 @@ def delete_question(request):
     questionData = Question.objects.filter(id=request.data['id'])
     if len(questionData) == 0:
         return JsonResponse(
-            {"error": "There is no question with this id"}, status=status.HTTP_401_UNAUTHORIZED
+            {"error": "There is no question with this id"}, status=status.HTTP_400_BAD_REQUEST
         )
     ques = QuestionSerializer(questionData[0], many=False).data
     if ques['user'] != user.id:
         return JsonResponse(
             {"error": "Cannot delete the question .The questions can only be deleted by the user who created"},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_400_BAD_REQUEST
         )
     Question.objects.filter(id=request.data['id']).delete()
     return JsonResponse(
@@ -658,32 +743,32 @@ def delete_category(request):
     categoryData = Category.objects.filter(name=request.data['name'])
     if len(categoryData) == 0:
         return JsonResponse(
-            {"error": "There is no category with this name"}, status=status.HTTP_401_UNAUTHORIZED
+            {"error": "There is no category with this name"}, status=status.HTTP_400_BAD_REQUEST
         )
     cat = CategorySerializer(categoryData[0], many=False).data
     if cat['user'] != user.id:
         return JsonResponse(
             {"error": "Cannot delete the category .It can only be deleted by the user who created"},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_400_BAD_REQUEST
         )
     categoryData = Category.objects.get(name=request.data['name'])
     question = Question.objects.filter(category=categoryData)
     if len(question) != 0:
         return JsonResponse(
             {"error": "Cannot delete the category .Questions have refrence to this"},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_400_BAD_REQUEST
         )
     ug = UserGames.objects.filter(category=categoryData)
     if len(ug) != 0:
         return JsonResponse(
             {"error": "Cannot delete the category .Some players have played the game"},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_400_BAD_REQUEST
         )
     game = Game.objects.filter(category=categoryData)
     if len(game) != 0:
         return JsonResponse(
             {"error": "Cannot delete the category .Games are created"},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_400_BAD_REQUEST
         )
     Category.objects.filter(name=request.data['name']).delete()
     return JsonResponse(
@@ -712,13 +797,13 @@ def update_category(request):
     categoryData = Category.objects.filter(name=request.data['name'])
     if len(categoryData) == 0:
         return JsonResponse(
-            {"error": "There is no category with this name"}, status=status.HTTP_401_UNAUTHORIZED
+            {"error": "There is no category with this name"}, status=status.HTTP_400_BAD_REQUEST
         )
     cat = CategorySerializer(categoryData[0], many=False).data
     if cat['user'] != user.id:
         return JsonResponse(
             {"error": "Cannot delete the category .It can only be deleted by the user who created"},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_400_BAD_REQUEST
         )
     cat = Category.objects.get(name=request.data['name'])
     cat.name = request.data['newname']
@@ -731,3 +816,150 @@ def update_category(request):
     return JsonResponse(
         {"category": "Category name updated sucessfully"}, status=status.HTTP_201_CREATED
     )
+
+
+@api_view(['POST'])
+@authentication_classes((TokenAuthentication,))
+def opendb(request):
+    # User Authorization to ensure only user who adds questions can delete/edit them
+    token = request.META['HTTP_AUTHORIZATION'].split(' ')
+    try:
+        user = Token.objects.get(key=token[1]).user
+    except Token.DoesNotExist:
+        return JsonResponse(
+            {"error": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED
+        )
+    data = requests.get(url=request.data['url']).json()  # takes in data from url and displays json response
+    questionsList = []  # option list
+    errorList = []
+    for question in data['results']:  # goes through option list (LOOP 2)
+        optionsList = html.unescape(question['incorrect_answers'])
+        optionsList.append(question['correct_answer'])
+        random.shuffle(optionsList)
+        try:
+            index = optionsList.index(question['correct_answer'])
+        except Exception as error:
+            print(error)
+        optionsListData = []
+        for option in optionsList:
+            optionData = Options.objects.filter(option=option)
+            if len(optionData) == 0:
+                option = {
+                    'option': option
+                }
+                serializer = OptionsSerializer(data=option, many=False)
+                if serializer.is_valid():
+                    serializer.save()
+            else:
+                serializer = OptionsSerializer(optionData[0], many=False)
+            optionsListData.append(serializer.data['option'])
+        #html encoding fixes for question
+        escapedquestion = question['question']
+        unescapedquestion = html.unescape(escapedquestion).replace("\\","")
+        question = {
+            "question": unescapedquestion,
+            "category": question['category'],
+            "options": optionsListData,
+            "user": user.id,
+            "answer": html.unescape(optionsListData[index]) #fixes answers
+        }
+        serializer = QuestionSerializer(data=question)
+        if serializer.is_valid():
+            serializer.save()
+            questionsList.append(serializer.data)
+        else:
+            errorList.append({'error':serializer.errors,'question':html.unescape(question['question'])})
+    if len(errorList) != 0:
+        return JsonResponse({
+            "data": questionsList,
+            'error': errorList
+        }, status=status.HTTP_200_OK)
+    else:
+        return JsonResponse({
+            "data": questionsList
+        }, status=status.HTTP_200_OK)
+
+
+class NewsletterView(viewsets.GenericViewSet):
+    serializer_class = NewsletterSerializer
+    permission_classes = (AllowAny,)
+
+    def get_queryset(self):
+        return None
+
+    @action(detail=False, methods=["post"], url_path="subscribe")
+    def add_to_newsletter(self, request):
+        if "email" not in request.data:
+            return JsonResponse(
+                {"error": "Enter your email"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        is_subscribed = len(Newsletter.objects.filter(email=request.data["email"])) != 0
+        if is_subscribed:
+            return JsonResponse(
+                {"error": "You have already subscribed to our Newsletter"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        newsletter = Newsletter(email=request.data["email"])
+        newsletter.save()
+        newsletterSerializer = NewsletterSerializer(newsletter)
+        return JsonResponse(
+            {"data": newsletterSerializer.data, "message": "Successfully subscribed",},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["delete"], url_path="unsubscribe")
+    def unsubscribe_newsletter(self, request):
+        if "email" not in request.data:
+            return JsonResponse(
+                {"error": "Please enter your email"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            newsletter = Newsletter.objects.get(email=request.data["email"])
+        except Newsletter.DoesNotExist:
+            return JsonResponse(
+                {"error": "This email is not subscribed to the Newsletter"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        newsletter.delete()
+        return JsonResponse(
+            {"message": "Successfully unsubscribed"}, status=status.HTTP_200_OK,
+        )
+
+
+class ContactUsView(viewsets.GenericViewSet):
+    serializer_class = ContactUsSerializer
+    permission_classes = (AllowAny,)
+
+    def get_queryset(self):
+        return None
+
+    @action(detail=False, methods=["post"])
+    def send_contact_info(self, request):
+        if "email" not in request.data:
+            return JsonResponse(
+                {"error": "Please enter your email"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if "full_name" not in request.data:
+            return JsonResponse(
+                {"error": "Please enter your Full name"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if "message" not in request.data:
+            return JsonResponse(
+                {"error": "Please enter your message"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        contactUs = ContactUs(
+            email=request.data["email"],
+            full_name=request.data["full_name"],
+            message=request.data["message"],
+        )
+        contactUs.save()
+        return JsonResponse({"data": "Message sent"}, status=status.HTTP_200_OK)
+
+
+class UserGameLeaderBoardView(generics.ListAPIView):
+    permission_classes = (AllowAny,)
+    queryset = UserGames.objects.all().order_by("-score", "id")
+    serializer_class = UserGamesSerializer
+    pagination_class = StandardResultsSetPagination
